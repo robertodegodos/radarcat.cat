@@ -1,0 +1,13 @@
+name = "radar-catalunya-archiver"
+main = "worker.js"
+compatibility_date = "2024-09-01"
+
+# Variables NO secretas (usuario/repo/rama de GitHub).
+# Los SECRETOS (GITHUB_TOKEN y, opcionalmente, ARCHIVE_SECRET) NO van aquí:
+# se configuran con `wrangler secret put GITHUB_TOKEN` o desde el dashboard
+# (Settings → Variables and Secrets → Add secret), para que no queden en
+# texto plano en este archivo si lo subes a un repositorio.
+[vars]
+GITHUB_OWNER = "TU_USUARIO_GITHUB"
+GITHUB_REPO = "TU_REPOSITORIO"
+GITHUB_BRANCH = "main"
