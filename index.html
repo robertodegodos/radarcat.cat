@@ -971,22 +971,32 @@
        ========================================================= */
     const GITHUB_ARCHIVE_CONFIG = {
         // ⚠️ CANVIA aquests dos valors pel teu usuari/organització i pel nom del repositori de GitHub
-        REPO_USER: 'TU_USUARIO_GITHUB',
-        REPO_NAME: 'TU_REPOSITORIO',
+        REPO_USER: 'robertodegodos',
+        REPO_NAME: 'radarcat.cat',
         BRANCH: 'main',
-        // jsDelivr fa de CDN gratuït davant de GitHub: més ràpid i sense els límits
-        // de peticions de raw.githubusercontent.com. Triga uns minuts a refrescar-se
-        // (cache pública), cosa que és perfectament acceptable per a un arxiu històric.
+        // Les tessel·les arxivades (un cop pujades, mai canvien de contingut) es
+        // serveixen per jsDelivr: CDN gratuïta, ràpida i sense els límits de
+        // peticions de raw.githubusercontent.com.
         CDN_BASE: 'https://cdn.jsdelivr.net/gh',
+        // L'índex, en canvi, canvia cada pocs minuts (cada cop que el Worker
+        // arxiva un fotograma nou). jsDelivr cacheja els fitxers d'una branca
+        // (@main) durant hores i no es refresca prou de pressa per a això, per
+        // això l'índex es llegeix directament de raw.githubusercontent.com
+        // (cache molt més curta, uns minuts) amb un paràmetre anti-cache.
+        RAW_BASE: 'https://raw.githubusercontent.com',
         INDEX_PATH: 'archive/index.json',
         FRAMES_PATH: 'archive/frames',
-        INDEX_REFRESH_MS: 3 * 60 * 1000, // refresca l'índex cada 3 min (el Worker escriu com a molt cada 4 min)
+        INDEX_REFRESH_MS: 2 * 60 * 1000, // refresca l'índex cada 2 min (el Worker escriu com a molt cada 4 min)
         MAX_AGE_MS: 7 * 24 * 60 * 60 * 1000 // 1 setmana (informatiu; la purga real la fa el Worker)
     };
 
     const GitHubArchive = (function () {
         function cdnUrl(path) {
             return `${GITHUB_ARCHIVE_CONFIG.CDN_BASE}/${GITHUB_ARCHIVE_CONFIG.REPO_USER}/${GITHUB_ARCHIVE_CONFIG.REPO_NAME}@${GITHUB_ARCHIVE_CONFIG.BRANCH}/${path}`;
+        }
+
+        function rawUrl(path) {
+            return `${GITHUB_ARCHIVE_CONFIG.RAW_BASE}/${GITHUB_ARCHIVE_CONFIG.REPO_USER}/${GITHUB_ARCHIVE_CONFIG.REPO_NAME}/${GITHUB_ARCHIVE_CONFIG.BRANCH}/${path}`;
         }
 
         let indexCache = null;          // { byTs: Map<ts, entry>, list: [...], fetchedAt }
@@ -1000,9 +1010,10 @@
             if (indexPromise && !force) return indexPromise;
             indexPromise = (async () => {
                 try {
-                    // cache: 'no-store' perquè, tot i passar per la CDN, quan naveguem
-                    // per data volem l'índex més fresc possible dins del que permet jsDelivr
-                    const res = await fetch(cdnUrl(GITHUB_ARCHIVE_CONFIG.INDEX_PATH) + `?_=${Math.floor(Date.now() / 60000)}`);
+                    // raw.githubusercontent.com + timestamp únic a la query per evitar
+                    // qualsevol cache intermèdia (navegador, proxy...); és un JSON petit,
+                    // no té sentit acceptar-hi cap mena de "servit fa X minuts".
+                    const res = await fetch(rawUrl(GITHUB_ARCHIVE_CONFIG.INDEX_PATH) + `?_=${Date.now()}`, { cache: 'no-store' });
                     if (!res.ok) throw new Error('index.json no disponible (' + res.status + ')');
                     const list = await res.json();
                     const byTs = new Map();
