@@ -1,0 +1,33 @@
+name: Borrar frames antiguos
+
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Eliminar archivos de más de 7 días
+        run: |
+          cutoff=$(date -d '7 days ago' +%s)
+          git ls-files archive/frames/ | while read -r f; do
+            ts=$(git log -1 --format=%ct -- "$f")
+            if [ "$ts" -lt "$cutoff" ]; then
+              git rm -q "$f"
+            fi
+          done
+          if ! git diff --cached --quiet; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git commit -m "Borrar frames con más de 7 días"
+            git push
+          fi
