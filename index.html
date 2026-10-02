@@ -971,13 +971,17 @@
                 "#7E1BCE", "#4214C9", "#151AE8", "#0328FF", "#01DEFE", 
                 "#00FFB2", "#08FF36", "#64FF00", "#A8FF00", "#EEFF00", 
                 "#FDB700", "#FF7B00", "#FF3B00", "#E40000", "#C5002C", 
-                "#ED006A", "#F300C3", "#E300FF", "#FFFFFF"
+                "#ED006A", "#F300C3", "#E300FF", "#FFFFFF",
+                "#CFCFCF", // gris fluix: acumulats > 200 mm
+                "#000000"  // negre: acumulats > 300 mm
             ],
             labels: [
                 { text: "0,1 mm", position: "3%" },
-                { text: "5 mm", position: "27%" },
-                { text: "26 mm", position: "55%" },
-                { text: "100+ mm", position: "88%" }
+                { text: "5 mm", position: "24%" },
+                { text: "26 mm", position: "52%" },
+                { text: "100 mm", position: "79%" },
+                { text: "200", position: "90%" },
+                { text: "300+", position: "96%" }
             ]
         }
     };
@@ -1193,7 +1197,12 @@
     let accumCustomEnd = null;       // Date | null (mode personalitzat)
 
     // Escala d'acumulació (mm en 1h) associada a la mateixa gamma de colors del radar
-    const ACCUM_BINS_MM = [0.1, 1, 2, 3, 5, 7, 10, 13, 17, 21, 26, 32, 40, 50, 65, 80, 100, 130, 160];
+    // El blanc cobreix de 130 a 200 mm; >200 mm gris fluix; >300 mm negre (l'últim color és el de "300+")
+    const ACCUM_BINS_MM = [0.1, 1, 2, 3, 5, 7, 10, 13, 17, 21, 26, 32, 40, 50, 65, 80, 100, 130, 200, 300];
+    // Colors propis de l'escala d'acumulació (la gamma del radar + gris fluix + negre)
+    const ACCUM_COLOR_RGB = LEGEND_DATA.accum.colors.map(hexToRgb);
+    // Factor de correcció: el radar infraestima l'acumulat respecte als pluviòmetres (~la meitat)
+    const ACCUM_CORRECTION_FACTOR = 2;
     const ACCUM_GRAY_RGB = [175, 175, 175]; // zones sense pluja (dins de Catalunya)
 
     const baseMaps = {
@@ -2776,7 +2785,7 @@
             const cumulative = [0];
             for (let i = 0; i < intensities.length - 1; i++) {
                 const avgIntensity = (intensities[i] + intensities[i + 1]) / 2;
-                const add = avgIntensity * (CONFIG.INTERVAL_MINUTES / 60);
+                const add = avgIntensity * (CONFIG.INTERVAL_MINUTES / 60) * ACCUM_CORRECTION_FACTOR;
                 cumulative.push(cumulative[cumulative.length - 1] + add);
             }
             const totalMm = cumulative[cumulative.length - 1];
@@ -2880,9 +2889,9 @@
     function accumMmToColor(mm) {
         if (mm < ACCUM_BINS_MM[0]) return null;
         for (let i = 0; i < ACCUM_BINS_MM.length; i++) {
-            if (mm < ACCUM_BINS_MM[i]) return RAIN_COLOR_RGB[i];
+            if (mm < ACCUM_BINS_MM[i]) return ACCUM_COLOR_RGB[i];
         }
-        return RAIN_COLOR_RGB[RAIN_COLOR_RGB.length - 1];
+        return ACCUM_COLOR_RGB[ACCUM_COLOR_RGB.length - 1];
     }
 
     // Inversa de lonLatToTileFrac: coordenades de tile fraccionàries -> lat/lng
@@ -3060,7 +3069,7 @@
                         if (prevIntensity) {
                             for (let i = 0; i < 65536; i++) {
                                 const avg = (prevIntensity[i] + intensity[i]) / 2;
-                                cumulative[i] += avg * (CONFIG.INTERVAL_MINUTES / 60);
+                                cumulative[i] += avg * (CONFIG.INTERVAL_MINUTES / 60) * ACCUM_CORRECTION_FACTOR;
                             }
                         }
                         prevIntensity = intensity;
